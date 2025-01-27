@@ -33,7 +33,9 @@ export const lambdaHandler = async (event, context) => {
     // Instantiate WebSocket client to return text to Twilio
     // This client can be used in this lambda and/or passed
     // to other modules / layers.
-    // This is the same for both caller and callee!
+    // This is the same for both caller and callee so that a message
+    // received from either can post a message to the other using
+    // the connectionId of the other!
     const ws_client = new ApiGatewayManagementApiClient( {
         endpoint: `https://${ws_domain_name}/${ws_stage}`
     });
@@ -53,6 +55,7 @@ export const lambdaHandler = async (event, context) => {
                 // Translation is not yet active, return WAIT message
                 let waitMessage = "Please wait while we configure translation services.";
                     
+                // Translate the wait message if the source language is not English
                 if (party.sourceVoiceCode !== "en" && party.sourceVoiceCode !== "en-US") {
                     let translateWaitObject = await invokeTranslate(waitMessage, "en", party.sourceLanguageCode);
                     waitMessage = translateWaitObject.TranslatedText;
@@ -81,7 +84,12 @@ export const lambdaHandler = async (event, context) => {
 
                 console.info("translateObject\n" + JSON.stringify(translateObject, null, 2));    
 
-                // 2. post the translated text to the opposite party 
+                // 2. post the translated text to the opposite party
+                /**
+                 * The websocket connection is shared by both parties.
+                 * We can post the translated text to the connectionId
+                 * of the other party.
+                 */ 
                 await replyToWS(ws_client, party.targetConnectionId, {   
                     type:"text",
                     token: translateObject.TranslatedText, 
@@ -89,17 +97,22 @@ export const lambdaHandler = async (event, context) => {
                 }); 
 
                 //3. save the original and translated text to the database
+                /**
+                 * This allows for the text in both languages to be saved and
+                 * a complete record of the conversation.
+                 */
                 let itm = {
                     pk: party.parentConnectionId, // Use the parent connection ID (Caller) to save all text
                     sk: `spokenText::${Date.now().toString()}`,
                     pk1: "spokenText",
                     sk1: `${party.parentConnectionId}::${Date.now().toString()}`,
                     chat: {                
+                        ts: Date.now(), // timestamp for sorting
                         whichParty: party.whichParty, // who spoke the words
                         partyConnectionId: party.pk, // connectionId of who spoke the words
-                        original: body.voicePrompt,
+                        original: body.voicePrompt, // what the caller said
                         originalLanguageCode: translateObject.SourceLanguageCode,
-                        translated: translateObject.TranslatedText,
+                        translated: translateObject.TranslatedText, // the result of the translation
                         translatedLanguageCode: translateObject.TargetLanguageCode,
                     },
                     expireAt: Math.floor(Date.now() / 1000) + 86400, // Delete Record after 1 day (can be changed/removed)
@@ -121,6 +134,9 @@ export const lambdaHandler = async (event, context) => {
             /**
              * This is the initial setup event sent by the ConversationRelay server.
              * Create a new connection record in the database for this party (caller or callee).
+             * This record maintains state for each party including record of 
+             * the other party so each party can post translated text
+             * to the other party.
              */
 
             // This is the Caller's connectionId for both parties
@@ -133,6 +149,8 @@ export const lambdaHandler = async (event, context) => {
                 sk: "connection",
                 pk1: "connection",
                 sk1: body.customParameters.SortKey,
+                pk2: "callsid",
+                sk2: body.callSid,
                 callStatus: "connected", // connected, disconnected                
                 parentConnectionId: parentConnectionId, // Will be the same for both parties but is Caller's connectionId                
                 callSid: body.callSid,
@@ -151,7 +169,7 @@ export const lambdaHandler = async (event, context) => {
             if (body?.customParameters.whichParty === "caller") {
                 
                 /**
-                 * Caller is the first party to connect. Trigger an
+                 * Caller is the first party to connect. So we must trigger an
                  * event (SNS) to connect the caller and callee by making
                  * an outbound call to the callee (lambda function using
                  * Twilio SDK).
@@ -174,6 +192,8 @@ export const lambdaHandler = async (event, context) => {
                  */
                 
                 // Set the connectionId for the Caller
+                // This passed by the sns message to the lambda function
+                // and then in a custom parameter in ConversationRelay
                 let callerConnectionId = body.customParameters.targetConnectionId;
 
                 /** 
@@ -208,6 +228,8 @@ export const lambdaHandler = async (event, context) => {
 
                 // Let the Callee know that the session has begun (post text to websocket)
                 let calleeConnectionMessage = "The translation session has begun.";
+
+                // If the callee language is NOT english, translate the welcome message
                 if (body.customParameters.sourceLanguageCode !== "en" && body.customParameters.sourceLanguageCode !== "en-US") {
                     let translateCalleeConnectedObject = await invokeTranslate(calleeConnectionMessage, "en", body.customParameters.sourceLanguageCode);
                     calleeConnectionMessage = translateCalleeConnectedObject.TranslatedText;
@@ -221,6 +243,8 @@ export const lambdaHandler = async (event, context) => {
 
                 // Let the Caller know that the session has begun (post text to websocket)
                 let callerConnectedMessage = "The translation session has begun.";
+
+                // If the caller language is NOT english, translate the welcome message
                 if (body.customParameters.targetLanguageCode !== "en" && body.customParameters.targetLanguageCode !== "en-US") {
                     let translateCallerConnectedObject = await invokeTranslate(callerConnectedMessage, "en", body.customParameters.targetLanguageCode);
                     callerConnectedMessage = translateCallerConnectedObject.TranslatedText;

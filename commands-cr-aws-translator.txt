@@ -11,8 +11,6 @@ Use AWS Secrets Manager and create a secret for this stack. The secret MUST BE N
 TWILIO_ACCOUNT_SID
 TWILIO_AUTH_TOKEN
 
-The first SecretString is required to access the LLM. The next two are required to send SMS messages and the final two are needed to send emails. If you do not want to send SMS or email, just put in fake data for those strings.
-
 ====================================================
 DEPLOY TEMPLATE
 ====================================================

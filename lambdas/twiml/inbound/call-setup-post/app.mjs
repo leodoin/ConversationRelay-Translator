@@ -73,6 +73,7 @@ export const lambdaHandler = async (event, context) => {
                 name: "Dan",
                 sourceLanguageCode: "en", // ("en") What AWS Translate uses to translate
                 sourceLanguage: "en-US", // ("en-US") What ConversationRelay uses                
+                sourceLanguageFriendly: "English - United States", // ("en-US") What ConversationRelay uses                
                 sourceTranscriptionProvider: "Deepgram", // ("Deegram") Provider for transcription
                 sourceTtsProvider: "Amazon", // ("Amazon") Provider for Text-To-Speech
                 sourceVoice: "Matthew-Generative", // ("Matthew-Generative") Voice for TTS (depends on ttsProvider)                
@@ -81,6 +82,10 @@ export const lambdaHandler = async (event, context) => {
         console.info("userContext ==>\n" + JSON.stringify(userContext, null, 2));    
 
         // 3) Determine Translation session params to use
+        /** 
+         * These properties are passed as parameters to the ConversationRelay
+         * and included in the setup websocket message.
+        */
 
         let customParams = {
             ...userContext, // Add all properties from userContext        
@@ -88,11 +93,13 @@ export const lambdaHandler = async (event, context) => {
             From: twilio_body.From,
             SortKey: twilio_body.From,            
             AccountSid: twilio_body.AccountSid,
+            SourceCallSid: twilio_body.CallSid,
             translationActive: false,
             whichParty: "caller",
             targetConnectionId: "notset", // opposite party
             targetLanguageCode: "notset", // opposite party (for example, "es-MX") for AWS Translate
             targetLanguage: "notset", // opposite party (for example, "es-MX") for ConversationRelay
+            targetLanguageFriendly: "Spanish - Mexico", // opposite party (for example, "Spanish - Mexico") for ConversationRelay
             targetTranscriptionProvider: "notset", // opposite party
             targetTtsProvider: "notset", // opposite party
             targetVoice: "notset", // opposite party (for example, "es-MX") voice used by ConversationRelay 
@@ -100,14 +107,15 @@ export const lambdaHandler = async (event, context) => {
         };
         
         /**
-         * Params for the Conversation Relay Twilio TwiML tag are saved in 
-         * an object for the use case record. Each property of the object
-         * will be injected into the TwiML tag below. Allows for Params
-         *  to be pulled in dynamically from the user record.   
+         * Params for the Conversation Relay Twilio TwiML. The properties
+         * of conversationRelayParams object are set as attributes IN 
+         * the ConterationRelay TwiML tag. This can be dynamic
+         * per user session!
         */
 
         let welcomeGreeting = "Please wait while we connect you to a translator."
 
+        // Get a localized version of the welcome message if not in English
         if (userContext.sourceLanguageCode !== "en" && userContext.sourceLanguageCode !== "en-US") {
             let translateObject = await invokeTranslate(welcomeGreeting, "en", userContext.sourceLanguageCode);
             welcomeGreeting = translateObject.TranslatedText;
@@ -125,14 +133,15 @@ export const lambdaHandler = async (event, context) => {
 
         // 4) Generate Twiml to spin up ConversationRelay connection
 
-        // Pull out params ==> Could be dynamic for language, tts, stt...
+        // Pull out params passed as attribute to the ConsationRelay TwiML tag
+        //  ==> Could be dynamic for language, tts, stt...
         let conversationRelayParamsString = "";
         for (const [key, value] of Object.entries(conversationRelayParams)) {
             conversationRelayParamsString += `${key}="${value}" `;
             console.log(`${key}: ${value}`);
         }
 
-        // These Passed into "setup" message sent by ConversationRelay
+        // These Passed as <Parameters></Parameters> into "setup" message sent by ConversationRelay
         let customParamsString = "";
         for (const [key, value] of Object.entries(customParams)) {
             customParamsString += `            <Parameter name="${key}" value="${value}" />
@@ -140,6 +149,7 @@ export const lambdaHandler = async (event, context) => {
             console.log(`${key}: ${value}`);
         }        
 
+        // Generate Twiml to spin up ConversationRelay connection
         let twiml = `<?xml version="1.0" encoding="UTF-8"?><Response>    
     <Connect>
         <ConversationRelay url="${process.env.WS_URL}" ${conversationRelayParamsString}>

@@ -3,6 +3,11 @@
  * 
  * Lambda function called when a websocket connection has ended.
  * 
+ * Since there are two separate calls in this solution, if one
+ * call hangs up we need to notify the other party AND end
+ * the other call. Your solution may choose to transfer the
+ * call instead of end it.
+ * 
  */
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
@@ -86,8 +91,8 @@ export const lambdaHandler = async (event, context) => {
                         ReturnValues: "ALL_NEW",                            
                     } 
                 ) 
-            );              
-            
+            );                          
+
             // (B) Send text that the other party has ended the call
             let disconnectMessage = "The other person has ended the call.";
             if (otherParty.sourceLanguageCode !== "en" && otherParty.sourceLanguageCode !== "en-US") {
@@ -107,8 +112,12 @@ export const lambdaHandler = async (event, context) => {
                 last: true
             });                    
             // (C) Use Twilio SDK to end the call
+            /**
+             * Note: Step B could be handled with TwiML as well.
+             * Send a <Say> verb and then a <Hangup>
+             */
             const delay = ms => new Promise(res => setTimeout(res, ms));
-            await delay(2000); // wait 2 seconds before ending the call
+            await delay(2000); // wait 2 seconds before ending the call to allow time for message to be spoken
 
             const endCallResponse = await twilioClient
                 .calls(otherParty.callSid)
