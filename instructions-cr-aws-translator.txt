@@ -1,0 +1,33 @@
+====================================================
+BEFORE FIRST DEPLOY
+====================================================
+1) => Install node libraries
+npm --prefix ./layers/layer-cr-twilio-client/nodejs install
+
+2) Update template.yaml with your variables
+
+3) Copy aws-profile.profile.sample to aws-profile.profile and enter your local profile name.
+
+
+====================================================
+DEPLOY TEMPLATE
+====================================================
+
+4) Run `sam build` from this directory every time before deploying.
+
+5) Run sam deploy... 
+sam deploy --stack-name CR-TRANSLATOR --template template.yaml --profile $(cat ./aws-profile.profile) --capabilities CAPABILITY_NAMED_IAM
+
+* The first time you deploy, add `--guided` (`sam deploy --guided --stack-name...`) to the above command to generate a configuration file. All subsequent commands do not need the --guided.
+
+====================================================
+LINK AWS REST API ENDPOINT TO TWILIO
+====================================================
+6) Take Output from the stack called "TwimlAPI" and assign it to the Webhook for Voice handler for their desired phone number.
+
+====================================================
+DATA LOADING (load a sample profile for a Caller and Callee)
+====================================================
+7) Load a profile
+
+aws dynamodb put-item --table-name CR-TRANSLATOR-AppDatabase --item "$(node ./configuration/dynamo-loaders/profile-caller-example.js | cat)" --profile $(cat ./aws-profile.profile)
