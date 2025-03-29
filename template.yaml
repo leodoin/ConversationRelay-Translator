@@ -7,7 +7,7 @@ Globals:
     Timeout: 5
     Runtime: nodejs20.x
     Layers:
-      - !Sub "arn:aws:lambda:us-east-1:580247275435:layer:LambdaInsightsExtension-Arm64:20"
+      - !Sub "arn:aws:lambda:eu-north-1:580247275435:layer:LambdaInsightsExtension-Arm64:20"
       # https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Lambda-Insights-Getting-Started-SAM-CLI.html
 Resources:
   ########################################
@@ -176,16 +176,12 @@ Resources:
         Variables:          
           TABLE_NAME: !Ref PrimaryDynamoDBTable          
           WS_URL: !Join [ '', [ 'wss://', !Ref CRWebSocketApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'Stage'] ]
-          # DO NOT STORE VALUES LIKE THIS IN CODE!...             
-          TWILIO_ACCOUNT_SID: "YOUR-TWILIO-ACCOUNT-SID"
-          TWILIO_AUTH_TOKEN: "YOUR-TWILIO-AUTH-TOKEN"          
-          AGENT_PHONE_NUMBER: "<ENTER-A-DEFAULT-TWILIO-NUMBER>"
-          TWILIO_DEFAULT_FROM: "ENTER-YOUR-DEFAULT-TWILIO-NUMBER"          
-          # INSTEAD, Use a secure method for production such as 
+          AGENT_PHONE_NUMBER: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/AGENT_PHONE_NUMBER}}'
+          TWILIO_DEFAULT_FROM: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/TWILIO_DEFAULT_FROM}}'
           # pulling from the AWS Parameter Store or Secrets Manager.
           # Use AWS Secrets Manager (or similar) to store these
-          # TWILIO_ACCOUNT_SID: '{{resolve:secretsmanager:CR_AWS_BEDROCK:SecretString:TWILIO_ACCOUNT_SID}}'
-          # TWILIO_AUTH_TOKEN: '{{resolve:secretsmanager:CR_AWS_BEDROCK:SecretString:TWILIO_AUTH_TOKEN}}'
+          TWILIO_ACCOUNT_SID: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS}}'
+          TWILIO_AUTH_TOKEN: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS}}'
           # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html
       Policies:        
         - DynamoDBCrudPolicy:
@@ -194,11 +190,15 @@ Resources:
           - Effect: Allow
             Action: translate:TranslateText
             Resource: '*'            
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CR_AWS_BEDROCK*"
       Events:
         SNSEvent:
           Type: SNS
           Properties:            
-            Topic: !Ref TwilioInitiateCallTopic   
+            Topic: !Ref TwilioInitiateCallTopic
 
 # Websocket API -- Connects to Twilio ConversationRelay
   CRWebSocketApi:
@@ -344,15 +344,12 @@ Resources:
       Environment:
         Variables:          
           TABLE_NAME: !Ref PrimaryDynamoDBTable
-          # DO NOT STORE VALUES LIKE THIS IN CODE!...
-          TWILIO_ACCOUNT_SID: "YOUR-TWILIO-ACCOUNT-SID"
-          TWILIO_AUTH_TOKEN: "YOUR-TWILIO-AUTH-TOKEN"
           # INSTEAD, Use a secure method for production such as
           # Use a secure method for production such as 
           # pulling from the AWS Parameter Store or Secrets Manager.
           # Use AWS Secrets Manager (or similar) to store these
-          # TWILIO_ACCOUNT_SID: '{{resolve:secretsmanager:CR_AWS_BEDROCK:SecretString:TWILIO_ACCOUNT_SID}}'
-          # TWILIO_AUTH_TOKEN: '{{resolve:secretsmanager:CR_AWS_BEDROCK:SecretString:TWILIO_AUTH_TOKEN}}'
+          TWILIO_ACCOUNT_SID: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS:TWILIO_ACCOUNT_SID}}'
+          TWILIO_AUTH_TOKEN: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS:TWILIO_AUTH_TOKEN}}'
           # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html          
       Policies:
         - DynamoDBCrudPolicy:
@@ -366,6 +363,10 @@ Resources:
           - Effect: Allow
             Action: translate:TranslateText
             Resource: '*'          
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CR_AWS_BEDROCK*"
       Layers: 
         - !Ref ConversationRelayDynamoDBUtilLayer
         - !Ref ConversationRelayInvokeTranslateLayer
@@ -478,11 +479,40 @@ Resources:
           - Effect: Allow
             Action: translate:TranslateText
             Resource: '*'            
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CR_AWS_BEDROCK*"
       Events:
         CallSetupPostEvent:
           Type: HttpApi
           Properties:
             Path: /initiate-translation-session
+            Method: post
+            ApiId: !Ref TwimlAPI
+
+  LanguageSelectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-LanguageSelectorFunction"
+      Description: "Handles language selection for translation sessions"
+      CodeUri: lambdas/twiml/inbound/language-selector/
+      AutoPublishAlias: live
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref PrimaryDynamoDBTable
+      Policies:        
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PrimaryDynamoDBTable
+      Events:
+        LanguageSelectorEvent:
+          Type: HttpApi
+          Properties:
+            Path: /language-selector
             Method: post
             ApiId: !Ref TwimlAPI
             
@@ -492,7 +522,7 @@ Resources:
 Outputs:
   TwimlAPI:
     Description: "URL to use to configure Voice Handler for Twilio Phone Number inbound calls (returns TwiML!)"
-    Value: !Sub "https://${TwimlAPI}.execute-api.${AWS::Region}.amazonaws.com/initiate-translation-session"
+    Value: !Sub "https://${TwimlAPI}.execute-api.${AWS::Region}.amazonaws.com/language-selector"
   DynamonDBTableName:
     Value: !Ref PrimaryDynamoDBTable
     Export:
@@ -502,4 +532,4 @@ Outputs:
       - PrimaryDynamoDBTable
       - Arn
     Export:
-      Name: 'CRTranslateAppPrimaryDynamoTableArn'          
+      Name: 'CRTranslateAppPrimaryDynamoTableArn'
