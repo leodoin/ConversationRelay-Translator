@@ -7,13 +7,66 @@
  */
 
 import querystring from 'node:querystring';
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
-const dynClient = new DynamoDBClient({ region: process.env.AWS_REGION });
-const ddbDocClient = DynamoDBDocumentClient.from(dynClient);
 
 // Helper functions from Lambda Layers
 import { invokeTranslate } from '/opt/invoke-translate.mjs';
+
+// Update the language configurations to include all required fields
+const languages = {
+    "1": {
+        name: "English",
+        sourceLanguageCode: "en",
+        sourceLanguage: "en-US",
+        sourceLanguageFriendly: "English - United States",
+        sourceTranscriptionProvider: "Deepgram",
+        sourceTtsProvider: "Amazon",
+        sourceVoice: "Matthew-Generative"
+    },
+    "2": {
+        name: "German",
+        sourceLanguageCode: "de",
+        sourceLanguage: "de-DE",
+        sourceLanguageFriendly: "German",
+        sourceTranscriptionProvider: "Deepgram",
+        sourceTtsProvider: "Amazon",
+        sourceVoice: "Vicki-Generative"
+    },
+    "3": {
+        name: "Sandra",
+        sourceLanguageCode: "es-MX", // ("es-MX") What AWS Translate uses to translate
+        sourceLanguage: "es-MX", // ("es-MX") What ConversationRelay uses      
+        sourceTranscriptionProvider: "Deepgram", // ("Deepgram") Provider for transcription
+        sourceTtsProvider: "Amazon", // ("Amazon") Provider for Text-To-Speech
+        sourceVoice: "Lucia-Generative", // ("Lupe-Generative") Voice for TTS (depends on ttsProvider)
+        sourceLanguageFriendly: "Spanish - Mexico"
+    },
+    "4": {
+        name: "French",
+        sourceLanguageCode: "fr",
+        sourceLanguage: "fr-FR",
+        sourceLanguageFriendly: "French",
+        sourceTranscriptionProvider: "Deepgram",
+        sourceTtsProvider: "google",
+        sourceVoice: "fr-FR-Journey-F"
+    },
+    "5": {
+        name: "Russian",
+        sourceLanguageCode: "ru-RU", // ("es-MX") What AWS Translate uses to translate
+        sourceLanguage: "ru-RU", // ("es-MX") What ConversationRelay uses      
+        sourceTranscriptionProvider: "Deepgram", // ("Deepgram") Provider for transcription
+        sourceTtsProvider: "Amazon", // ("Amazon") Provider for Text-To-Speech
+        sourceVoice: "Lupe-Generative", // ("Lupe-Generative") Voice for TTS (depends on ttsProvider)
+    },
+    "6": {
+        name: "Polish",
+        sourceLanguageCode: "pl-PL",
+        sourceLanguage: "pl-PL",
+        sourceLanguageFriendly: "Polish",
+        sourceTranscriptionProvider: "Deepgram",
+        sourceTtsProvider: "Amazon",
+        sourceVoice: "Lupe-Generative"
+    }
+};
 
 export const lambdaHandler = async (event, context) => {     
     
@@ -31,7 +84,9 @@ export const lambdaHandler = async (event, context) => {
     let bufferObj = Buffer.from(event.body, "base64");    
     let twilio_body = querystring.decode(bufferObj.toString("utf8"));
 
-    console.info("twilio_body ==>\n" + JSON.stringify(twilio_body, null, 2));        
+    console.info("twilio_body ==>\n" + JSON.stringify(twilio_body, null, 2));
+
+
 
     try {
 
@@ -63,22 +118,10 @@ export const lambdaHandler = async (event, context) => {
          * pt => Portuguese (Brazil)
          * 
         */
-        const user = await ddbDocClient.send( new GetCommand( { TableName: process.env.TABLE_NAME, Key: { pk: twilio_body.From, sk: "profile" } } ));
-        let userContext = {};
-        if (user.Item) {
-            userContext = user.Item;
-        } else {
-            // Default user context if no profile found
-            userContext = {
-                name: "Dan",
-                sourceLanguageCode: "en", // ("en") What AWS Translate uses to translate
-                sourceLanguage: "en-US", // ("en-US") What ConversationRelay uses                
-                sourceLanguageFriendly: "English - United States", // ("en-US") What ConversationRelay uses                
-                sourceTranscriptionProvider: "Deepgram", // ("Deegram") Provider for transcription
-                sourceTtsProvider: "Amazon", // ("Amazon") Provider for Text-To-Speech
-                sourceVoice: "Matthew-Generative", // ("Matthew-Generative") Voice for TTS (depends on ttsProvider)                
-            };
-        }
+
+        let userContext = languages[twilio_body.Digits || "1"]; // Default to English if no digits pressed
+
+    
         console.info("userContext ==>\n" + JSON.stringify(userContext, null, 2));    
 
         // 3) Determine Translation session params to use
@@ -99,7 +142,7 @@ export const lambdaHandler = async (event, context) => {
             targetConnectionId: "notset", // opposite party
             targetLanguageCode: "notset", // opposite party (for example, "es-MX") for AWS Translate
             targetLanguage: "notset", // opposite party (for example, "es-MX") for ConversationRelay
-            targetLanguageFriendly: "Spanish - Mexico", // opposite party (for example, "Spanish - Mexico") for ConversationRelay
+            targetLanguageFriendly: "notset", // opposite party (for example, "Spanish - Mexico") for ConversationRelay
             targetTranscriptionProvider: "notset", // opposite party
             targetTtsProvider: "notset", // opposite party
             targetVoice: "notset", // opposite party (for example, "es-MX") voice used by ConversationRelay 

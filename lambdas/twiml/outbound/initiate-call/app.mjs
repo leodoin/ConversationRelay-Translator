@@ -72,12 +72,13 @@ export const lambdaHandler = async (event, context) => {
 
         // If no agent is found are not sent in by snsPayload, use defaults
         agentContext = {
-            name: "Sandra",
-            sourceLanguageCode: "es-MX", // ("es-MX") What AWS Translate uses to translate
-            sourceLanguage: "es-MX", // ("es-MX") What ConversationRelay uses      
-            sourceTranscriptionProvider: "Deepgram", // ("Deepgram") Provider for transcription
-            sourceTtsProvider: "Amazon", // ("Amazon") Provider for Text-To-Speech
-            sourceVoice: "Lupe-Generative", // ("Lupe-Generative") Voice for TTS (depends on ttsProvider)
+          name: "English",
+          sourceLanguageCode: "en",
+          sourceLanguage: "en-US",
+          sourceLanguageFriendly: "English - United States",
+          sourceTranscriptionProvider: "Deepgram",
+          sourceTtsProvider: "Amazon",
+          sourceVoice: "Matthew-Generative"
         };
       }
     }
