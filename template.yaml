@@ -176,12 +176,13 @@ Resources:
         Variables:          
           TABLE_NAME: !Ref PrimaryDynamoDBTable          
           WS_URL: !Join [ '', [ 'wss://', !Ref CRWebSocketApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'Stage'] ]
-          AGENT_PHONE_NUMBER: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/AGENT_PHONE_NUMBER}}'
-          TWILIO_DEFAULT_FROM: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/TWILIO_DEFAULT_FROM}}'
+          # AGENT_PHONE_NUMBER: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/AGENT_PHONE_NUMBER}}'
+          AGENT_PHONE_NUMBER: '{{resolve:ssm:/twilio/AGENT_PHONE_NUMBER}}'
+          TWILIO_DEFAULT_FROM: '{{resolve:ssm:/twilio/TWILIO_DEFAULT_FROM}}'
           # pulling from the AWS Parameter Store or Secrets Manager.
           # Use AWS Secrets Manager (or similar) to store these
-          TWILIO_ACCOUNT_SID: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS}}'
-          TWILIO_AUTH_TOKEN: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS}}'
+          TWILIO_ACCOUNT_SID: '{{resolve:ssm:/twilio/TWILIO_ACCOUNT_SID}}'
+          TWILIO_AUTH_TOKEN: '{{resolve:ssm:/twilio/TWILIO_AUTH_TOKEN}}'
           # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html
       Policies:        
         - DynamoDBCrudPolicy:
@@ -348,9 +349,8 @@ Resources:
           # Use a secure method for production such as 
           # pulling from the AWS Parameter Store or Secrets Manager.
           # Use AWS Secrets Manager (or similar) to store these
-          TWILIO_ACCOUNT_SID: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS:TWILIO_ACCOUNT_SID}}'
-          TWILIO_AUTH_TOKEN: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS:TWILIO_AUTH_TOKEN}}'
-          # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html          
+          TWILIO_ACCOUNT_SID: '{{resolve:ssm:/twilio/TWILIO_ACCOUNT_SID}}'
+          TWILIO_AUTH_TOKEN: '{{resolve:ssm:/twilio/TWILIO_AUTH_TOKEN}}'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PrimaryDynamoDBTable
