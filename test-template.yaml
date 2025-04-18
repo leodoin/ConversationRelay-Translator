@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Test template for SSM parameters
+
+Resources:
+  TestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: TestFunction
+      CodeUri: lambdas/twiml/outbound/initiate-call/
+      Handler: app.lambdaHandler
+      Runtime: nodejs20.x
+      Architectures:
+        - arm64
+      Environment:
+        Variables:
+          TRANSLATION_PROVIDER: aws
+          DEEPL_API_KEY_PARAM: "/translation/DEEPL_API_KEY"
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: 
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/translation/*" 

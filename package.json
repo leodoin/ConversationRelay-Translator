@@ -1,0 +1,22 @@
+{
+  "name": "translation-test",
+  "version": "1.0.0",
+  "description": "Tests for ConversationRelay-Translator",
+  "main": "test-translation.js",
+  "scripts": {
+    "test": "node test-translation.js",
+    "test:ws": "node test-conversation-flow.js",
+    "test:deepl": "node test-deepl.js",
+    "test:ssm": "node test-lambda-ssm.js",
+    "test:translate": "node test-direct-translate.js",
+    "use:aws": "node set-translation-provider.js aws",
+    "use:deepl": "node set-translation-provider.js deepl"
+  },
+  "dependencies": {
+    "@aws-sdk/client-lambda": "^3.489.0",
+    "@aws-sdk/client-ssm": "^3.489.0",
+    "deepl-node": "^1.11.0",
+    "ws": "^8.13.0",
+    "uuid": "^9.0.0"
+  }
+} 

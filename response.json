@@ -1,0 +1,1 @@
+{"statusCode":200,"body":"{\"message\":\"Translation completed successfully\",\"originalText\":\"Hello, how are you today?\",\"translatedText\":\"Hola, ¿cómo está hoy?\",\"sourceLanguageCode\":\"en\",\"targetLanguageCode\":\"es\",\"provider\":\"aws\"}"}

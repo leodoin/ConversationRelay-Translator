@@ -176,21 +176,26 @@ Resources:
         Variables:          
           TABLE_NAME: !Ref PrimaryDynamoDBTable          
           WS_URL: !Join [ '', [ 'wss://', !Ref CRWebSocketApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'Stage'] ]
-          # AGENT_PHONE_NUMBER: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/AGENT_PHONE_NUMBER}}'
-          AGENT_PHONE_NUMBER: '{{resolve:ssm:/twilio/AGENT_PHONE_NUMBER}}'
-          TWILIO_DEFAULT_FROM: '{{resolve:ssm:/twilio/TWILIO_DEFAULT_FROM}}'
-          # pulling from the AWS Parameter Store or Secrets Manager.
-          # Use AWS Secrets Manager (or similar) to store these
-          TWILIO_ACCOUNT_SID: '{{resolve:ssm:/twilio/TWILIO_ACCOUNT_SID}}'
-          TWILIO_AUTH_TOKEN: '{{resolve:ssm:/twilio/TWILIO_AUTH_TOKEN}}'
-          # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html
+          TRANSLATION_PROVIDER: "aws"
+          TRANSLATION_PROVIDER_PARAM: "/translation/PROVIDER"
+          DEEPL_API_KEY_PARAM: "/translation/DEEPL_API_KEY"
+          AGENT_PHONE_NUMBER_PARAM: "/twilio/AGENT_PHONE_NUMBER"
+          TWILIO_FROM_PARAM: "/twilio/TWILIO_DEFAULT_FROM"
+          TWILIO_SID_PARAM: "/twilio/TWILIO_ACCOUNT_SID"
+          TWILIO_TOKEN_PARAM: "/twilio/TWILIO_AUTH_TOKEN"
       Policies:        
         - DynamoDBCrudPolicy:
             TableName: !Ref PrimaryDynamoDBTable
         - Statement:
           - Effect: Allow
             Action: translate:TranslateText
-            Resource: '*'            
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: 
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/translation/*"
           - Effect: Allow
             Action:
               - secretsmanager:GetSecretValue
@@ -282,6 +287,8 @@ Resources:
           TABLE_NAME: !Ref PrimaryDynamoDBTable
           AWS_ACCOUNT_ID: !Ref AWS::AccountId
           TWILIO_INITIATE_CALL_TOPIC: !Ref TwilioInitiateCallTopic
+          TWILIO_ACCOUNT_SID: "defaultTwilioSid"
+          TWILIO_AUTH_TOKEN: "defaultTwilioToken"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PrimaryDynamoDBTable
@@ -294,6 +301,12 @@ Resources:
           - Effect: Allow
             Action: translate:TranslateText
             Resource: '*'
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: 
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/translation/*"
           - Effect: Allow
             Action:
             - 'sns:Publish'
@@ -345,12 +358,8 @@ Resources:
       Environment:
         Variables:          
           TABLE_NAME: !Ref PrimaryDynamoDBTable
-          # INSTEAD, Use a secure method for production such as
-          # Use a secure method for production such as 
-          # pulling from the AWS Parameter Store or Secrets Manager.
-          # Use AWS Secrets Manager (or similar) to store these
-          TWILIO_ACCOUNT_SID: '{{resolve:ssm:/twilio/TWILIO_ACCOUNT_SID}}'
-          TWILIO_AUTH_TOKEN: '{{resolve:ssm:/twilio/TWILIO_AUTH_TOKEN}}'
+          TWILIO_ACCOUNT_SID: "defaultTwilioSid"
+          TWILIO_AUTH_TOKEN: "defaultTwilioToken"
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PrimaryDynamoDBTable
@@ -363,6 +372,12 @@ Resources:
           - Effect: Allow
             Action: translate:TranslateText
             Resource: '*'          
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: 
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/translation/*"
           - Effect: Allow
             Action:
               - secretsmanager:GetSecretValue
@@ -472,6 +487,8 @@ Resources:
         Variables:
           WS_URL: !Join [ '', [ 'wss://', !Ref CRWebSocketApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'Stage'] ]
           TABLE_NAME: !Ref PrimaryDynamoDBTable
+          TWILIO_ACCOUNT_SID: "defaultTwilioSid"
+          TWILIO_AUTH_TOKEN: "defaultTwilioToken"
       Policies:        
         - DynamoDBCrudPolicy:
             TableName: !Ref PrimaryDynamoDBTable
@@ -479,6 +496,12 @@ Resources:
           - Effect: Allow
             Action: translate:TranslateText
             Resource: '*'            
+          - Effect: Allow
+            Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: 
+              - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/translation/*"
           - Effect: Allow
             Action:
               - secretsmanager:GetSecretValue
