@@ -176,13 +176,12 @@ Resources:
         Variables:          
           TABLE_NAME: !Ref PrimaryDynamoDBTable          
           WS_URL: !Join [ '', [ 'wss://', !Ref CRWebSocketApi, '.execute-api.',!Ref 'AWS::Region','.amazonaws.com/',!Ref 'Stage'] ]
-          AGENT_PHONE_NUMBER: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/AGENT_PHONE_NUMBER}}'
-          TWILIO_DEFAULT_FROM: '{{arn:aws:ssm:eu-north-1:494524603046:parameter/twiolio/TWILIO_DEFAULT_FROM}}'
-          # pulling from the AWS Parameter Store or Secrets Manager.
-          # Use AWS Secrets Manager (or similar) to store these
-          TWILIO_ACCOUNT_SID: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS}}'
-          TWILIO_AUTH_TOKEN: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS}}'
-          # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html
+          # Using SSM for non-sensitive data
+          AGENT_PHONE_NUMBER: '{{resolve:ssm:/twilio/AGENT_PHONE_NUMBER}}'
+          TWILIO_DEFAULT_FROM: '{{resolve:ssm:/twilio/TWILIO_DEFAULT_FROM}}'
+          # Using Secrets Manager for sensitive data
+          TWILIO_ACCOUNT_SID: '{{resolve:secretsmanager:Twilio-keys:SecretString:TWILIO_ACCOUNT_SID}}'
+          TWILIO_AUTH_TOKEN: '{{resolve:secretsmanager:Twilio-keys:SecretString:TWILIO_AUTH_TOKEN}}'
       Policies:        
         - DynamoDBCrudPolicy:
             TableName: !Ref PrimaryDynamoDBTable
@@ -192,8 +191,15 @@ Resources:
             Resource: '*'            
           - Effect: Allow
             Action:
+              - ssm:GetParameter
+              - ssm:GetParameters
+            Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/twilio/*"
+          - Effect: Allow
+            Action:
               - secretsmanager:GetSecretValue
-            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CR_AWS_BEDROCK*"
+            Resource: 
+              - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:Twilio-keys*"
+              - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CR_AWS_BEDROCK*"
       Events:
         SNSEvent:
           Type: SNS
@@ -344,13 +350,9 @@ Resources:
       Environment:
         Variables:          
           TABLE_NAME: !Ref PrimaryDynamoDBTable
-          # INSTEAD, Use a secure method for production such as
-          # Use a secure method for production such as 
-          # pulling from the AWS Parameter Store or Secrets Manager.
-          # Use AWS Secrets Manager (or similar) to store these
-          TWILIO_ACCOUNT_SID: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS:TWILIO_ACCOUNT_SID}}'
-          TWILIO_AUTH_TOKEN: '{{arn:aws:secretsmanager:eu-north-1:494524603046:secret:Twilio-keys-Ii2DTS:TWILIO_AUTH_TOKEN}}'
-          # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/dynamic-references.html          
+          # Using Secrets Manager for sensitive data
+          TWILIO_ACCOUNT_SID: '{{resolve:secretsmanager:Twilio-keys:SecretString:TWILIO_ACCOUNT_SID}}'
+          TWILIO_AUTH_TOKEN: '{{resolve:secretsmanager:Twilio-keys:SecretString:TWILIO_AUTH_TOKEN}}'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref PrimaryDynamoDBTable
@@ -366,7 +368,9 @@ Resources:
           - Effect: Allow
             Action:
               - secretsmanager:GetSecretValue
-            Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CR_AWS_BEDROCK*"
+            Resource: 
+              - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:Twilio-keys*"
+              - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:CR_AWS_BEDROCK*"
       Layers: 
         - !Ref ConversationRelayDynamoDBUtilLayer
         - !Ref ConversationRelayInvokeTranslateLayer
